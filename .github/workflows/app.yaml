@@ -1,7 +1,7 @@
 name: Build and Push Docker Image
 
 env:
- #DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/my-react-app"
+  DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/my-react-app"
   DOCKERFILE_PATH: app
 
 on:
