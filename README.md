@@ -33,3 +33,11 @@ when we made any change to the infra folder automatically the pipeline gets trig
 we are delegating on the above steps to the terraform cloud,at the apply stage it will ask for confirmation,when we click on the confirm it will actually create the infra on aws
 
 i have using the VS code editor to write the terraform configarion files and also git bash to push the code to the remote repository
+
+Terraform cloud
+---------------
+-> By configuring our local terraform workspace with terraform cloud,all operations like plan
+apply and destroy are now delegated completely to terraform cloud.
+-> state file will also get stored securely in terraform cloud
+-> In Terraform cloud, i created the dev workspace,workspaces helps in logically segregating all aspects of terraform operation.
+-> we can define the workspaces for differnt environments like staging, prod etc.
