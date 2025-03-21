@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - ".github\workflows\app"
+      - ".github/workflows/app"
       - "app/**"
       - "!**/README.md"
 
