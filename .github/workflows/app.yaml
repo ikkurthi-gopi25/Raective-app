@@ -1,7 +1,7 @@
 # Github Actions Workflow file that builds and pushes the docker images.
 name: practicalgitops.app
 env:
-  DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/practicalgitops"
+  DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/react-app"
   DOCKERFILE_PATH: app
 
 on:
@@ -38,6 +38,7 @@ jobs:
         with:
           context: "${{ env.DOCKERFILE_PATH }}"
           push: true
+          repository: <sk224400/reac
           tags: "${{ env.DOCKERHUB_TAG }}:latest"  
   
       
