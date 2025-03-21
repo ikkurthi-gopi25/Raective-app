@@ -3,6 +3,14 @@ env:
   DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/react-app"
   DOCKERFILE_PATH: app
 
+on:
+ push:
+   branches:
+     - main
+   paths:
+     - "app/**"
+     - "!** /README.md"
+
 
  # Job declaration starts.
 jobs:
