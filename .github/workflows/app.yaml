@@ -34,12 +34,12 @@ jobs:
 
       # Step 4: Build the Docker image
       - name: build the docker image
-          id: build-docker-image
-          run: |
+        id: build-docker-image
+        run: |
             ls -la 
             docker build . -f Dockerfile -t sk224400/demo-image-test:latest
       - name: push the docker image
-          id: push-docker-image
-          run: docker push ${{secrets.DOCKERHUB_USERNAME}}/demo-image-test:latest
+        id: push-docker-image
+        run: docker push ${{secrets.DOCKERHUB_USERNAME}}/demo-image-test:latest
   
       
