@@ -8,7 +8,7 @@ on:
    branches:
      - main
    paths:
-     - "app/**"
+     - "react-native-notes-app-main/**"
      - "!** /README.md"
 
 
