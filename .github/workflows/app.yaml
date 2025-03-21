@@ -1,7 +1,7 @@
 name: Deploy React Native App to EC2 
 env:
   DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/react-app"
-  DOCKERFILE_PATH: app
+  DOCKERFILE_PATH: react-native-notes-app-main
 
 on:
  push:
