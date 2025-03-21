@@ -1,4 +1,4 @@
 
-workspaces { name = "Devops-app" }
+workspaces { name = "dev" }
 hostname = "app.terraform.io"
 organization = "gitopss"
