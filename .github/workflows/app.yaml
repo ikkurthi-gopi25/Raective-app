@@ -39,3 +39,5 @@ jobs:
           context: "${{ env.DOCKERFILE_PATH }}"
           push: true
           tags: "${{ env.DOCKERHUB_TAG }}:latest"
+      
+      - name: Pusing the image
