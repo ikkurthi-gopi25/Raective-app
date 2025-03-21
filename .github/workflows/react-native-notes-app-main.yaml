@@ -12,7 +12,7 @@ on:
      - "!** /README.md"
 
 
- # Job declaration starts.
+ # Job declaration starts here
 jobs:
   docker:
     runs-on: ubuntu-latest
