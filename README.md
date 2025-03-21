@@ -22,3 +22,13 @@ inside this module i have created main.tf,output.tf and variables.tf files
 6. variables.tf --> it defines the input variables that make terraform configartions more flexible and reusable
 
 
+when we made any change to the infra folder automatically the pipeline gets triggered,the steps are going to run which is defined in the infra.yaml file.
+
+1. terraform init: this cmd initializes the terraform project by downloading the req providers,setting up backend storage, and preparing the working directory
+2. terraform validate: checks the terraform configartion is syntactically and logically correct
+3. terraform plan: creates an execution plan by checking what changes will be applied to the infrastructure
+4. terraform apply: it actually creates the infrastructure on the aws
+5. terraform destroy: it destroys the created infrastructure
+
+we are delegating on the above steps to the terraform cloud,at the apply stage it will ask for confirmation,when we click on the confirm it will actually create the infra on aws
+
