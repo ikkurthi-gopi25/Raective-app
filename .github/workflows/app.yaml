@@ -1,7 +1,7 @@
 name: Build and Push Docker Image
 
 env:
-  DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/react-app"
+  #DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/react-app"
   DOCKERFILE_PATH: app
 
 on:
@@ -33,15 +33,13 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Step 4: Build the Docker image
-      - name: Build the Docker image
-        id: docker_build
-        uses: docker/build-push-action@v2
-        with:
-          context: "${{ env.DOCKERFILE_PATH}}"
-
-      # Step 5: Push the Docker image to Docker Hub
-      - name: Push the Docker image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/react-app:latest
+      - name: build the docker image
+          id: build-docker-image
+          run: |
+            ls -la 
+            docker build . -f Dockerfile -t sk224400/demo-image-test:latest
+      - name: push the docker image
+          id: push-docker-image
+          run: docker push ${{secrets.DOCKERHUB_USERNAME}}/demo-image-test:latest
   
       
