@@ -32,3 +32,4 @@ when we made any change to the infra folder automatically the pipeline gets trig
 
 we are delegating on the above steps to the terraform cloud,at the apply stage it will ask for confirmation,when we click on the confirm it will actually create the infra on aws
 
+i have using the VS code editor to write the terraform configarion files and also git bash to push the code to the remote repository
