@@ -1,7 +1,7 @@
 # Github Actions Workflow file that builds and pushes the docker images.
 name: Deploy react app to ECS
 env:
- # DOCKERHUB_TAG: "${{ secrets.DOCKERHUB_USERNAME }}/practicalgitops"
+ 
   DOCKERFILE_PATH: app
 
 on:
