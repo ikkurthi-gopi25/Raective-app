@@ -47,4 +47,28 @@ jobs:
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    - name: Deploy to EC2
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        port: ${{ secrets.EC2_PORT }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        source: .
+        target: /home/ec2-user/my-app/
+        on_error: fail
+            
+    - name: Run deployment script on EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        port: ${{ secrets.EC2_PORT }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+              sudo docker stop my-app
+              sudo docker rm my-app
+              sudo docker pull ${{ secrets.ECR_REGISTRY }}/my-repository:latest
+              sudo docker run -d -p 80:8080 --name my-app ${{ secrets.ECR_REGISTRY }}/my-repository:latest
  
