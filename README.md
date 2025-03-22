@@ -41,3 +41,8 @@ apply and destroy are now delegated completely to terraform cloud.
 -> state file will also get stored securely in terraform cloud
 -> In Terraform cloud, i created the dev workspace,workspaces helps in logically segregating all aspects of terraform operation.
 -> we can define the workspaces for differnt environments like staging, prod etc.
+
+-> in the app.yaml file,the deployment process starts with the building the docker image.
+-> I have written the Dockerfile for the react app,and built the image and pushed the image to the
+ECR repository and tagged the image with proper tagging
+-> I have stored all the secrets in the github secrets.
