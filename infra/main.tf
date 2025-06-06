@@ -1,82 +1,116 @@
-locals {
-  name-suffix = "${var.region}-${var.environment}"
+provider "aws" {
+  region = var.aws_region
 }
 
-# Date element fetching the AMI ID of ubuntu 
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  filter {
-    name = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+# 1. ECR Repository to store Docker images
+resource "aws_ecr_repository" "app_repo" {
+  name                 = var.project_name
+  image_tag_mutability = "MUTABLE"
 
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+# 2. IAM Role and Policy for EC2
+resource "aws_iam_role" "ec2_role" {
+  name = "${var.project_name}-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      {
+        Action    = "sts:AssumeRole",
+        Effect    = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Policy for ECR read-only access
+resource "aws_iam_role_policy_attachment" "ecr_policy_attachment" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+# Policy for SSM read-only access
+resource "aws_iam_role_policy_attachment" "ssm_policy_attachment" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+}
+
+resource "aws_iam_instance_profile" "ec2_instance_profile" {
+  name = "${var.project_name}-instance-profile"
+  role = aws_iam_role.ec2_role.name
+}
+
+# 3. Security Group to allow web and SSH traffic
+resource "aws_security_group" "app_sg" {
+  name        = "${var.project_name}-sg"
+  description = "Allow HTTP and SSH inbound traffic"
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  filter {
-    name = "virtualization-type"
-    values = ["hvm"]
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # WARNING: For production, restrict this to your IP
   }
-  # AWS ID of the Canonical organization
-  owners = ["099720109477"]
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
-# HTTP Ingress Security Group Module
+# 4. EC2 Instance Resource (this CREATES the new instance)
+resource "aws_instance" "app_server" {
+  # The AMI ID is now hardcoded for Ubuntu 22.04 in us-east-1.
+  # If using another region, you must find the corresponding AMI ID in the EC2 Console.
+  ami                    = "ami-0c55b159cbfafe1f0"
 
-module "http_sg_ingress" {
-  source = "./modules/securitygroup"
+  # Instance type is set to t2.micro as requested.
+  instance_type          = "t2.micro"
+  
+  key_name               = var.ssh_key_name
+  vpc_security_group_ids = [aws_security_group.app_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2_instance_profile.name
 
-  sg_name        = "http_sg_ingress"
-  sg_description = "Allow Port 80 from anywhere"
-  environment    = var.environment
-  type           = "ingress"
-  from_port      = 80
-  to_port        = 80
-  protocol       = "tcp"
-  cidr_blocks    = ["0.0.0.0/0"]
-}
+  # User data script to install Docker on Ubuntu
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update -y
+              apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+              apt-get update -y
+              apt-get install -y docker-ce docker-ce-cli containerd.io
+              systemctl start docker
+              systemctl enable docker
+              usermod -a -G docker ubuntu
+              EOF
 
-# Generic egress security group module
-module "generic_sg_egress" {
-  source = "./modules/securitygroup"
-
-  sg_name        = "generic_sg_egress"
-  sg_description = "Allow server to connect to outbound internet"
-  environment    = var.environment
-  type           = "egress"
-  from_port      = 0
-  to_port        = 65535
-  protocol       = "tcp"
-  cidr_blocks    = ["0.0.0.0/0"]
-}
-
-# SSH ingress security group module
-module "ssh_sg_ingress" {
-  source = "./modules/securitygroup"
-
-  sg_name        = "ssh_sg_ingress"
-  sg_description = "Allow Port 22 from anywhere"
-  environment    = var.environment
-  type           = "ingress"
-  from_port      = 22
-  to_port        = 22
-  protocol       = "tcp"
-  cidr_blocks    = ["0.0.0.0/0"]
-}
-
-# AWS EC2 Resource Creation
-resource "aws_instance" "apache2_server" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.instance_type
-  vpc_security_group_ids = [module.http_sg_ingress.sg_id,
-    module.generic_sg_egress.sg_id,
-  module.ssh_sg_ingress.sg_id]
-  key_name  = var.ssh_key_name
-  user_data = file("./scripts/user_data.sh")
   tags = {
-    env  = var.environment
-    Name = "ec2-${local.name-suffix}"
+    Name = var.project_name
   }
+}
 
-  depends_on = [
-    module.generic_sg_egress
-  ]
+# 5. SSM Parameter to store the EC2's Public IP
+resource "aws_ssm_parameter" "ec2_public_ip" {
+  name        = "/${var.project_name}/ec2_public_ip"
+  description = "The public IP of the EC2 instance for the Notes App"
+  type        = "String"
+  value       = aws_instance.app_server.public_ip
+  overwrite   = true # Allows the parameter to be updated if the instance is replaced
 }
