@@ -1,74 +1,79 @@
-name: Build and push image to ECR
+name: CI/CD Pipeline for Notes App
 
+# This workflow runs on any push to the main branch
 on:
- push:
-   branches:
-      - main
-   paths:  
-      - "app/**"
-      - "!**/README.md"
-  
+  push:
+    branches: [ main ]
+
+env:
+  # Variables available to all jobs
+  AWS_REGION: us-east-1
+  # The ECR repository name must match the one in Terraform
+  ECR_REPOSITORY: gitops-notes-app
+  CONTAINER_NAME: notes-app-container
 
 jobs:
-  
-  build:
-    
-    name: Build Image
+  # JOB 1: Build the Docker image and push it to AWS ECR
+  build-and-push:
+    name: Build and Push to ECR
     runs-on: ubuntu-latest
-
-   
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v2
     
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Automatic Tagging of Releases
-      id: increment-git-tag
-      run: |
-        bash ./build/git_update.sh -v major
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build, Tag, and Push the Image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: react-app
-        IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }} # Use the commit SHA for a unique tag
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Deploy to EC2
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        port: ${{ secrets.EC2_PORT }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_PRIVATE_KEY }}
-        source: .
-        target: /home/ec2-user/my-app/
-        on_error: fail
-            
-    - name: Run deployment script on EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        port: ${{ secrets.EC2_PORT }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_PRIVATE_KEY }}
-        script: |
-              sudo docker stop my-app
-              sudo docker rm my-app
-              sudo docker pull ${{ secrets.ECR_REGISTRY }}/my-repository:latest
-              sudo docker run -d -p 80:8080 --name my-app ${{ secrets.ECR_REGISTRY }}/my-repository:latest
- 
+  # JOB 2: Deploy the new image to the EC2 instance
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push # This job only runs if the 'build-and-push' job succeeds
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        
+      - name: Deploy to EC2 instance
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST_IP }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            # Pull the new image from ECR
+            docker pull ${{ needs.build-and-push.outputs.image }}
+
+            # Stop and remove the old container, if it exists
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
+
+            # Run the new container
+            docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${{ needs.build-and-push.outputs.image }}
