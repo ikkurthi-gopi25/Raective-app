@@ -8,7 +8,7 @@ on:
       - "Dockerfile"
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east
   ECR_REPOSITORY: gitops-notes-app
   CONTAINER_NAME: notes-app-container
   SSM_PARAMETER_NAME: /gitops-notes-app/ec2_public_ip
